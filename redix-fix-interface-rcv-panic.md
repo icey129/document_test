@@ -173,7 +173,7 @@ func saneDefault(prefix byte) interface{} {
 }
 ```
 
-the following code won't throw a panic any more and can return correct error msg when run `run(false)` in evalAction, and will return the value when redis is not returning errors.
+the following code won't throw a panic any more and can return correct error msg when response receiver is interface{} in evalAction, and will return the value when redis is not returning errors.
 ```
 	// This is a super special case that _must_ be handled before we actually
 	// read from the reader. If an *interface{} is given we instead unmarshal
