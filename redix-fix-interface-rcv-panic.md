@@ -1,4 +1,4 @@
-When I run the following eval action test, I met a panic "should never get here". 
+Run the following eval action test, a panic "should never get here" will be raised. 
 ```
 func TestEvalActionWithInterfaceRcv(t *T)  {
 	getSet := NewEvalScript(1, `
@@ -19,7 +19,7 @@ func TestEvalActionWithInterfaceRcv(t *T)  {
 	}
 }
 ```
-The panic infomation show as follows.
+The panic stack info.
 ```
 === RUN   TestEvalActionWithInterfaceRcv
 --- FAIL: TestEvalActionWithInterfaceRcv (0.00s)
@@ -53,7 +53,7 @@ created by testing.(*T).Run
 Process finished with exit code 1
 ```
 
-Following the panic stack, I found when the code goto `run(false)` in evalAction will panic where suppored to return "NOSCRIPT" error. 
+Seems if we set the response receiver for EvalAction.Cmd to interface{}, when the EvalAction runs `run(false)` for the first time, a panic "should never get here" will be raised, for returned "NOSCRIPT" error message is not expected in function saneDefault. 
 ```
  func (ec *evalAction) Run(conn Conn) error {
 	run := func(eval bool) error {
@@ -72,7 +72,6 @@ Following the panic stack, I found when the code goto `run(false)` in evalAction
 } 
 ```
 
-Read the deep code, I found that it's because I set the `res` type to `interface{}` in `TestEvalActionWithInterfaceRcv`, which will go to the UnmarshalRESP method of `Any` and match the `if ai, ok := a.I.(*interface{}); ok ` condition, then run to saneDefault(prefix) before handle the error. 
 ```
 func (a Any) UnmarshalRESP(br *bufio.Reader) error {
 	// if I is itself an Unmarshaler just hit that directly
@@ -153,7 +152,7 @@ func (a Any) UnmarshalRESP(br *bufio.Reader) error {
 	}
 }
 ```
-When the eval script sha is not in redis, the result retured by redis is `-NOSCRIPT` whose prefix is '-' when go into `saneDefault` function. But `saneDefault` not handle `ErrorPrefix` and throw a panic, as the following code. But the `ErrorPrefix` is not handled before code gointo the `saneDefault` function.
+When the eval script sha is not in redis, the result retured by redis is `-NOSCRIPT` whose prefix is '-',  but '-' in the `saneDefault` is not handled and and throws a panic "should never get here", as the following code.
 ```
 func saneDefault(prefix byte) interface{} {
 	// we don't handle ErrorPrefix because that always returns an error and
@@ -174,7 +173,7 @@ func saneDefault(prefix byte) interface{} {
 }
 ```
 
-So, I judge the `ErrorPrefix` before call saneDefault in `Any` struct, and add some UT in my code. It won't throw a panic any more and can return correct error msg when run `run(false)` in evalAction, and will return the value when redis not return error.
+the following code won't throw a panic any more and can return correct error msg when response receiver is interface{} in evalAction, and will return the value when redis is not returning errors.
 ```
 	// This is a super special case that _must_ be handled before we actually
 	// read from the reader. If an *interface{} is given we instead unmarshal
